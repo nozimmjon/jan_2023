@@ -1,5 +1,5 @@
 
-#libraries
+# Load necessary libraries
 library(readxl)
 library(lubridate)
 library(stringr)
@@ -13,7 +13,10 @@ library(tidyverse)
 library(rlang)
 library(openxlsx)
 
-#Calling functions
+# Set working directory
+here::here()
+
+# Load custom functions
 
 source("scripts/read_clean_survey_data.R")
 source("scripts/balance_score.R")
@@ -21,8 +24,8 @@ source("scripts/freq_gt_tables.R")
 
 
 # Set input and output paths
-region <- "jizzax"
 
+region <- "namangan"
 output_path <- paste0("output/", region, "/analysis_output.xlsx")
 output_folder <- paste0("output/", region)
 
@@ -31,15 +34,15 @@ if (!dir.exists(output_folder)) {
   dir.create(output_folder, recursive = TRUE)
 }
 
-#read and cleaning data 
+#read in data and clean if necessary
 
-data <- read_clean_data(region) %>% 
-  clean_names() %>% 
-  mutate(district = recode(district, "Фориж" = "Фориш", 
-                           "Жиззах тумани" = "Шароф Рашидов"))
+survey_data <- read_clean_data(region) %>% 
+  clean_names() %>%
+  filter(district != "Давлатобод")
+
 
 # Apply the function to each question column by district with custom labels
-district_bs_score <- data %>% 
+district_bs_score <- survey_data %>% 
   group_by(district) %>% 
   summarise(q_1 = balance_score(table(q_1), pos_labels_q1),
             q_2 = balance_score(table(q_2), pos_labels_q2),
@@ -51,12 +54,12 @@ district_bs_score <- data %>%
 
 # Create a new data frame with values for whole region
 whole_region <- data.frame(district = "Whole Region",
-                           q_1 = balance_score(table(data$q_1), pos_labels_q1),
-                           q_2 = balance_score(table(data$q_2), pos_labels_q2),
-                           q_3 = balance_score(table(data$q_3), pos_labels_q3),
-                           q_4 = balance_score(table(data$q_4), pos_labels_q4),
-                           q_5 = balance_score(table(data$q_5), pos_labels_q5),
-                           q_6 = balance_score(table(data$q_6), pos_labels_q6))
+                           q_1 = balance_score(table(survey_data$q_1), pos_labels_q1),
+                           q_2 = balance_score(table(survey_data$q_2), pos_labels_q2),
+                           q_3 = balance_score(table(survey_data$q_3), pos_labels_q3),
+                           q_4 = balance_score(table(survey_data$q_4), pos_labels_q4),
+                           q_5 = balance_score(table(survey_data$q_5), pos_labels_q5),
+                           q_6 = balance_score(table(survey_data$q_6), pos_labels_q6))
 
 # Append it to data using rbind() and create new columns using mutate()
 gen_bs_score <- rbind(district_bs_score, whole_region) %>%
@@ -67,7 +70,7 @@ gen_bs_score <- rbind(district_bs_score, whole_region) %>%
   select(district, starts_with("bs"))
 
 # frequency table for q_7
-q7 <- data %>%
+q7 <- survey_data %>%
   tabyl(district, q_7) %>% 
   adorn_totals() %>% 
   adorn_percentages("row") %>% 
@@ -76,7 +79,7 @@ q7 <- data %>%
   mutate_if(is.numeric, round, digits =0)
 
 # frequency table for q_8
-q_8 <- data %>%
+q_8 <- survey_data %>%
   mutate(q_8 = str_replace_all(q_8, "\\(.*\\)", "")) %>% 
   separate_rows(q_8, sep = ",") %>%
   mutate(q_8 = str_trim(q_8)) %>% 
@@ -154,7 +157,7 @@ subtitles <- rep("(*Респондентларнинг жавоблари*)", le
 
 #Use map to loop over the columns and apply the function
 tables <- map(seq_along(cols), function(i) { 
-  create_frequency_table (data, cols[i], labels[[i]], titles[[i]], subtitles[[i]])
+  create_frequency_table (survey_data, cols[i], labels[[i]], titles[[i]], subtitles[[i]])
     }) 
 
 
