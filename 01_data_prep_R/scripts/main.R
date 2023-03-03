@@ -13,19 +13,17 @@ library(tidyverse)
 library(rlang)
 library(openxlsx)
 
-# Set working directory
+# Set working directory using the here package
 here::here()
 
-# Load custom functions
-
+# Load custom functions from separate R scripts 
 source("scripts/read_clean_survey_data.R")
 source("scripts/balance_score.R")
 source("scripts/freq_gt_tables.R")
 
 
-# Set input and output paths
-
-region <- "namangan"
+# Set output paths for this specific region 
+region <- "xorazm"
 output_path <- paste0("output/", region, "/analysis_output.xlsx")
 output_folder <- paste0("output/", region)
 
@@ -34,12 +32,12 @@ if (!dir.exists(output_folder)) {
   dir.create(output_folder, recursive = TRUE)
 }
 
-#read in data and clean if necessary
-
+# Read in data and clean it using the custom function read_clean_data()
 survey_data <- read_clean_data(region) %>% 
   clean_names() %>%
-  filter(district != "Давлатобод")
+  filter(district != "Давлатобод") 
 
+survey_data %>% filter(is_working != "Пенсиядаман") %>% tabyl (gender, is_working) %>% adorn_percentages()
 
 # Apply the function to each question column by district with custom labels
 district_bs_score <- survey_data %>% 
@@ -51,7 +49,6 @@ district_bs_score <- survey_data %>%
             q_5 = balance_score(table(q_5), pos_labels_q5),
             q_6 = balance_score(table(q_6), pos_labels_q6)) 
 
-
 # Create a new data frame with values for whole region
 whole_region <- data.frame(district = "Whole Region",
                            q_1 = balance_score(table(survey_data$q_1), pos_labels_q1),
@@ -61,25 +58,25 @@ whole_region <- data.frame(district = "Whole Region",
                            q_5 = balance_score(table(survey_data$q_5), pos_labels_q5),
                            q_6 = balance_score(table(survey_data$q_6), pos_labels_q6))
 
-# Append it to data using rbind() and create new columns using mutate()
+# Append the whole region data to the district data using rbind(), then create new columns using mutate()
 gen_bs_score <- rbind(district_bs_score, whole_region) %>%
   mutate(bs_score_cur = (q_2 + q_4 + q_6)/3,
          bs_score_fut = (q_1 + q_3 + q_5)/3,
-         bs_gen = (bs_score_cur + bs_score_fut) / 2) %>% 
+         bs_gen = (bs_score_cur + bs_score_fut)/2) %>% 
   mutate_if(is.numeric, round, digits=0) %>% 
   select(district, starts_with("bs"))
 
-# frequency table for q_7
+# Frequency table for question q_7
 q7 <- survey_data %>%
   tabyl(district, q_7) %>% 
   adorn_totals() %>% 
   adorn_percentages("row") %>% 
   adorn_pct_formatting(rounding = "half up", digits = 0, affix_sign = FALSE) %>% 
   mutate_at(vars(-district), as.double) %>% 
-  mutate_if(is.numeric, round, digits =0)
+  mutate(across(where(is.numeric), round, digits=0))
 
-# frequency table for q_8
-q_8 <- survey_data %>%
+# Frequency table for question q_8
+q8 <- survey_data %>%
   mutate(q_8 = str_replace_all(q_8, "\\(.*\\)", "")) %>% 
   separate_rows(q_8, sep = ",") %>%
   mutate(q_8 = str_trim(q_8)) %>% 
@@ -114,7 +111,7 @@ q_8 <- survey_data %>%
   adorn_pct_formatting(rounding = "half up", digits = 0, affix_sign = FALSE)
 
 
-list_of_dataframes <- list("index"= gen_bs_score, "muammolar"=q7, "islohotlar_tezlatish"=q_8)  
+list_of_dataframes <- list("index"= gen_bs_score, "muammolar"=q7, "islohotlar_tezlatish"=q8)  
 
 wb <- createWorkbook()
 lapply(seq_along(list_of_dataframes), function(i){
@@ -125,7 +122,7 @@ lapply(seq_along(list_of_dataframes), function(i){
 saveWorkbook(wb, output_path, overwrite = TRUE) 
 
 #Create a list of column names
-cols <- c("q_1", "q_3", "q_5", "q_2", "q_4", "q_6", "q_9", "is_working", "is_official")
+cols <- c("q_1", "q_3", "q_5", "q_2", "q_4", "q_6", "q_9", "is_working", "is_official", "income")
 
 #Create a list of labels for each column
 labels <- list(c("Ёмонлашади", "Ўзгармайди", "Яхшиланади"), 
@@ -144,8 +141,8 @@ labels <- list(c("Ёмонлашади", "Ўзгармайди", "Яхшилан
 titles <- list("*1-савол.* **3 ойдан сўнг Ўзбекистонда <span style='color:red'>иқтисодий ҳолат</span> қандай ўзгаради?**", 
                "*3-савол*. **Кейинги 3 ой давомида <span style='color:red'>оилавий даромадингиз</span> қандай кутиляпти?**",
                "*5-савол*. **3 ойдан сўнг  <span style='color:red'>янги иш ўринлари сони</span> қандай ўзгаради?**",
-               "*2-савол*. **Ўтган 3 ойга нисбатан <span style='color:red'>оилавий даромадингиз </span> қандай ўзгарди?*",
-               "*4-савол*. **Ўтган 3 ойга нисбатан <span style='color:red'>янги иш ўринлари  </span> қандай ўзгарди?*",
+               "*2-савол*. **Ўтган 3 ойга нисбатан <span style='color:red'>оилавий даромадингиз </span> қандай ўзгарди?**",
+               "*4-савол*. **Ўтган 3 ойга нисбатан <span style='color:red'>янги иш ўринлари  </span> қандай ўзгарди?**",
                "*6-савол*. **Ҳозир узоқ муддатли <span style='color:red'> истеъмол товарларини харид қилиш  </span> учун қулай фурсатми?**",
                "**Маҳаллий ҳокимият органи фаолиятини қандай баҳолайсиз?**", 
                "**Туманлар (шаҳарлар) кесимида меҳнат ресурсларнинг <span style='color:red'>иш билан бандлик</span>  ҳолати**",
@@ -162,7 +159,6 @@ tables <- map(seq_along(cols), function(i) {
 
 
 #Save each table as an image file using gtsave and paste0 
-
 map(seq_along(tables), function(k) {
   gtsave(tables[[k]], file = paste0(output_folder, "/table_", cols[k], ".png"))
 })

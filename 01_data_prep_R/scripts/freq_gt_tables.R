@@ -62,7 +62,7 @@ create_frequency_table <- function(data, var, labels, title, subtitle) {
       filter(income != "Жавоб беришдан бош тортди") %>% 
       mutate(income = str_replace_all(income, " ", "")) %>%  
       mutate(income = as.double(income)) %>% 
-      mutate(income_group = case_when(income == 0 ~ "Даромади мавжуд эмас",
+      mutate(income = case_when(income == 0 ~ "Даромади мавжуд эмас",
                                       income >= 0 & income <= 1000000 ~ "1 млн сўмгача",
                                       income >= 1000001 & income <= 3000000 ~ "1-3 млн",
                                       income >= 3000001 ~ "3 млн сўмдан баланд"))
@@ -80,7 +80,7 @@ create_frequency_table <- function(data, var, labels, title, subtitle) {
     tab_header(title = md(title),
                subtitle = md(subtitle)) %>% 
     my_theme_gt() %>% 
-    cols_width(everything() ~ px(180))
+    cols_width(everything() ~ px(140))
   
   # Return the table as a gt object
   return(table)
