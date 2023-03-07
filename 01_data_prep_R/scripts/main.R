@@ -23,7 +23,7 @@ source("scripts/freq_gt_tables.R")
 
 
 # Set output paths for this specific region 
-region <- "xorazm"
+region <- "karakalpak"
 output_path <- paste0("output/", region, "/analysis_output.xlsx")
 output_folder <- paste0("output/", region)
 
@@ -111,8 +111,10 @@ q8 <- survey_data %>%
   adorn_pct_formatting(rounding = "half up", digits = 0, affix_sign = FALSE)
 
 
+# Create a list of data frames to write to the Excel file
 list_of_dataframes <- list("index"= gen_bs_score, "muammolar"=q7, "islohotlar_tezlatish"=q8)  
 
+# Create a new workbook and add worksheets for each data frame in the list
 wb <- createWorkbook()
 lapply(seq_along(list_of_dataframes), function(i){
   addWorksheet(wb=wb, sheetName = names(list_of_dataframes[i]))
